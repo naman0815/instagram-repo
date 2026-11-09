@@ -33,5 +33,9 @@ generated `iconURL`s point at them.
 - Cron runs can be delayed by several minutes. Release assets may be up to 2 GB.
 - `python fetch.py --dry-run` (needs the `TG_*` env vars) lists IPAs it would process without
   downloading, uploading or editing anything.
+- Only filenames matching `IPA_FILENAME_REGEX` (set in `.github/workflows/update.yml`) are tracked;
+  currently `Sparkle_v<x>_IG_v<y>.ipa`. Other posts (no-ext IPA, `.deb`, `.dylib`) are ignored.
+- On the first run only the **newest** matching IPA is published, not the whole channel history.
+  Set `BACKFILL=1` in the workflow env to process everything.
 - Tests: `pip install -r requirements-dev.txt && pytest`.
 - If a download fails, state is not advanced past that message; the next run retries it.

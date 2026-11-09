@@ -166,6 +166,17 @@ def is_ipa_name(name):
     return bool(name) and name.lower().endswith(".ipa")
 
 
+def matches_filter(name, pattern=None):
+    """True for an .ipa whose filename matches the optional regex `pattern`."""
+    if not is_ipa_name(name):
+        return False
+    return not pattern or re.search(pattern, name) is not None
+
+
+def message_filename(msg):
+    return getattr(msg.file, "name", None) if msg.document else None
+
+
 # --------------------------------------------------------------------------
 # GitHub release upload (gh CLI)
 # --------------------------------------------------------------------------
@@ -190,6 +201,23 @@ def log(msg):
     print(msg, flush=True)
 
 
+async def candidates(client, channel, last_id, pattern):
+    """Yield messages to look at, oldest first.
+
+    On the very first run (no state) only the newest matching IPA is taken, so
+    a long channel history is not downloaded. Set BACKFILL=1 to override."""
+    if last_id == 0 and not os.environ.get("BACKFILL"):
+        log("First run: taking only the newest matching IPA (BACKFILL=1 processes all history)")
+        async for msg in client.iter_messages(channel):  # newest first
+            if matches_filter(message_filename(msg), pattern):
+                yield msg
+                return
+        return
+    async for msg in client.iter_messages(channel, min_id=last_id, reverse=True):
+        if msg.id > last_id:
+            yield msg
+
+
 async def run(dry_run):
     from telethon import TelegramClient
     from telethon.sessions import StringSession
@@ -199,6 +227,7 @@ async def run(dry_run):
     session = os.environ["TG_SESSION"]
     channel = os.environ["TG_CHANNEL"].strip()
     repo = os.environ.get("GITHUB_REPOSITORY", "<user>/<repo>")
+    pattern = os.environ.get("IPA_FILENAME_REGEX", "").strip() or None
     if re.fullmatch(r"-?\d+", channel):
         channel = int(channel)
 
@@ -208,13 +237,10 @@ async def run(dry_run):
     log(f"Last processed message id: {last_id}")
 
     async with TelegramClient(StringSession(session), api_id, api_hash) as client:
-        async for msg in client.iter_messages(channel, min_id=last_id, reverse=True):
-            if msg.id <= last_id:
-                continue
-            doc = msg.document
-            filename = getattr(msg.file, "name", None) if doc else None
-            if not is_ipa_name(filename):
-                last_id = msg.id  # nothing to do for this message
+        async for msg in candidates(client, channel, last_id, pattern):
+            filename = message_filename(msg)
+            if not matches_filter(filename, pattern):
+                last_id = msg.id  # not the file we track; skip past it
                 continue
 
             if dry_run:

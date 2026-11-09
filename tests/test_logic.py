@@ -141,6 +141,26 @@ def test_clean_name_tag_and_url():
     assert fetch.download_url(REPO, "v1", "a b.ipa").endswith("/v1/a%20b.ipa")
 
 
+SPARKLE_RE = r"^Sparkle_v[0-9.]+_IG_v[0-9.]+\.ipa$"
+
+
+@pytest.mark.parametrize("name,expected", [
+    ("Sparkle_v1.6.0_IG_v454.1.0.ipa", True),
+    ("Sparkle_v1.6.1_IG_v455.0.ipa", True),
+    ("Sparkle_no-ext_v1.6.0_IG_v454.1.0.ipa", False),
+    ("Sparkle_v1.6.0_rootful.deb", False),
+    ("SPKSideloadFix.dylib", False),
+    ("Other_v1.0_IG_v1.0.ipa", False),
+    (None, False),
+])
+def test_matches_filter(name, expected):
+    assert fetch.matches_filter(name, SPARKLE_RE) is expected
+
+
+def test_matches_filter_without_pattern_accepts_any_ipa():
+    assert fetch.matches_filter("whatever.ipa") and not fetch.matches_filter("a.deb")
+
+
 def test_is_ipa_name():
     assert fetch.is_ipa_name("A.IPA") and fetch.is_ipa_name("a.ipa")
     assert not fetch.is_ipa_name("a.zip") and not fetch.is_ipa_name(None)

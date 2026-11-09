@@ -13,7 +13,7 @@ import sys
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 ROOT = Path(__file__).resolve().parent
 SOURCE_PATH = ROOT / "source.json"
@@ -131,16 +131,23 @@ def version_exists(source, version):
 
 
 def refresh_description(source, version, caption):
-    """Fill in a missing changelog on already-published versions. True if changed."""
-    changed = False
+    """Fill in a missing changelog on already-published versions.
+    Returns the list of version entries that changed (empty if none)."""
+    changed = []
     for app in source.get("apps", []):
         for v in app.get("versions", []):
             if v.get("version") == version:
                 new = merge_description(v.get("localizedDescription", ""), caption)
                 if new != v.get("localizedDescription"):
                     v["localizedDescription"] = new
-                    changed = True
+                    changed.append(v)
     return changed
+
+
+def tag_from_url(url):
+    """Release tag out of a .../releases/download/<tag>/<file> URL."""
+    m = re.search(r"/releases/download/([^/]+)/", url or "")
+    return unquote(m.group(1)) if m else None
 
 
 def new_source():
@@ -335,9 +342,18 @@ async def run(dry_run):
             # big download, only fill in a missing changelog.
             fv = filename_version(filename, pattern)
             if fv and version_exists(source, fv):
-                if refresh_description(source, fv, caption):
-                    log(f"Updated changelog for {fv}")
+                changed = refresh_description(source, fv, caption)
+                if changed:
                     save_json(SOURCE_PATH, source)
+                    log(f"Updated changelog for {fv}")
+                    for v in changed:  # keep the GitHub release notes in sync too
+                        tag = tag_from_url(v.get("downloadURL"))
+                        try:
+                            if tag:
+                                gh("release", "edit", tag, "--repo", repo,
+                                   "--notes", v["localizedDescription"])
+                        except subprocess.CalledProcessError as e:
+                            log(f"Could not update release notes for {tag}: {e.stderr}")
                 log(f"Skip #{msg.id}: {fv} already published")
                 last_id = msg.id
                 state["last_message_id"] = last_id

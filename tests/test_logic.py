@@ -215,10 +215,17 @@ def test_refresh_description_only_touches_matching_version():
     add(src, m=meta(version="1.5.0", build="1"), description="Instagram 451.0.0")
     add(src, m=meta(version="1.6.0", build="2"), description="Instagram 454.1.0")
     assert fetch.version_exists(src, "1.6.0") and not fetch.version_exists(src, "9.9")
-    assert fetch.refresh_description(src, "1.6.0", "Notes") is True
-    assert fetch.refresh_description(src, "1.6.0", "Notes") is False
+    changed = fetch.refresh_description(src, "1.6.0", "Notes")
+    assert [v["version"] for v in changed] == ["1.6.0"]
+    assert fetch.refresh_description(src, "1.6.0", "Notes") == []
     descs = {v["version"]: v["localizedDescription"] for v in src["apps"][0]["versions"]}
     assert descs == {"1.5.0": "Instagram 451.0.0", "1.6.0": "Instagram 454.1.0\n\nNotes"}
+
+
+def test_tag_from_url():
+    url = fetch.download_url(REPO, "v1.6.0-110", "Instagram-1.6.0.ipa")
+    assert fetch.tag_from_url(url) == "v1.6.0-110"
+    assert fetch.tag_from_url("https://example.com/x.ipa") is None and fetch.tag_from_url(None) is None
 
 
 def test_source_name():

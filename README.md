@@ -35,6 +35,9 @@ generated `iconURL`s point at them.
   downloading, uploading or editing anything.
 - Only filenames matching `IPA_FILENAME_REGEX` (set in `.github/workflows/update.yml`) are tracked;
   currently `Sparkle_v<x>_IG_v<y>.ipa`. Other posts (no-ext IPA, `.deb`, `.dylib`) are ignored.
+- If the regex has a named group `version`, that text (Sparkle's version) is used as the release
+  version/tag instead of the Info.plist version (Instagram's), so a new Sparkle build on the same
+  Instagram version is still published. The Instagram version goes in the description.
 - On the first run only the **newest** matching IPA is published, not the whole channel history.
   Set `BACKFILL=1` in the workflow env to process everything.
 - Tests: `pip install -r requirements-dev.txt && pytest`.

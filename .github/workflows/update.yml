@@ -30,7 +30,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           # Only track this file; skips the no-ext IPA, .deb and .dylib posts.
-          IPA_FILENAME_REGEX: '^Sparkle_v[^_]+_IG_v[^_]+\.ipa$'
+          # The named group `version` (Sparkle's version) becomes the release version,
+          # so a new Sparkle build on the same Instagram version is still published.
+          IPA_FILENAME_REGEX: '^Sparkle_v(?P<version>[^_]+)_IG_v[^_]+\.ipa$'
         run: python fetch.py
       # always(): if a later IPA fails, still commit progress from earlier ones.
       - name: Commit changes

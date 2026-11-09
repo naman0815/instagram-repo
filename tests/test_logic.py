@@ -159,6 +159,31 @@ def test_matches_filter(name, expected):
     assert fetch.matches_filter(name, SPARKLE_RE) is expected
 
 
+NAMED_RE = r"^Sparkle_v(?P<version>[^_]+)_IG_v[^_]+\.ipa$"
+
+
+def test_apply_filename_version_uses_tweak_version():
+    m = fetch.apply_filename_version(meta(version="454.1.0"), "Sparkle_v1.6.0_IG_v454.1.0.ipa", NAMED_RE)
+    assert m["version"] == "1.6.0" and m["hostVersion"] == "454.1.0"
+
+
+def test_apply_filename_version_noop_without_named_group_or_match():
+    base = meta(version="454.1.0")
+    assert fetch.apply_filename_version(base, "Sparkle_v1.6.0_IG_v454.1.0.ipa", SPARKLE_RE) == base
+    assert fetch.apply_filename_version(base, "x.ipa", NAMED_RE) == base
+    assert fetch.apply_filename_version(base, "x.ipa", None) == base
+
+
+def test_new_tweak_version_on_same_host_version_is_not_a_duplicate():
+    src = fetch.new_source()
+    a = fetch.apply_filename_version(meta(version="451.0.0"), "Sparkle_v1.5.0_IG_v451.0.0.ipa", NAMED_RE)
+    b = fetch.apply_filename_version(meta(version="451.0.0"), "Sparkle_v1.5.1_IG_v451.0.0.ipa", NAMED_RE)
+    assert add(src, m=a) is True
+    assert add(src, m=b) is True
+    assert [v["version"] for v in src["apps"][0]["versions"]] == ["1.5.1", "1.5.0"]
+    assert add(src, m=b) is False
+
+
 def test_matches_filter_without_pattern_accepts_any_ipa():
     assert fetch.matches_filter("whatever.ipa") and not fetch.matches_filter("a.deb")
 

@@ -82,6 +82,22 @@ def extract_metadata(ipa_path):
     }
 
 
+def apply_filename_version(meta, filename, pattern):
+    """If `pattern` has a named group `version` that matches `filename`, use it
+    as the release version (e.g. the tweak's own version) instead of the
+    Info.plist one, which is the host app's version and can repeat across
+    tweak releases. The original is kept as meta['hostVersion']."""
+    if not pattern:
+        return meta
+    m = re.search(pattern, filename or "")
+    if not m or "version" not in m.re.groupindex or not m.group("version"):
+        return meta
+    out = dict(meta)
+    out["hostVersion"] = meta["version"]
+    out["version"] = m.group("version")
+    return out
+
+
 def new_source():
     return {
         "name": "My IPA Source",
@@ -252,7 +268,7 @@ async def run(dry_run):
             try:
                 log(f"Downloading #{msg.id}: {filename}")
                 await client.download_media(msg, file=str(tmp))
-                meta = extract_metadata(tmp)
+                meta = apply_filename_version(extract_metadata(tmp), filename, pattern)
             except Exception as e:  # download or parse failure: stop, keep state
                 log(f"ERROR on message #{msg.id} ({filename}): {e!r}; will retry next run")
                 tmp.unlink(missing_ok=True)
@@ -270,7 +286,11 @@ async def run(dry_run):
             shutil.move(tmp, clean)
             tag = make_tag(meta["version"], meta["build"])
             caption = (msg.message or "").strip()
+            host = meta.get("hostVersion")
             title = f"{meta['name']} {meta['version']} ({meta['build']})"
+            if host:
+                title = f"{meta['name']} {meta['version']} (IG {host})"
+                caption = f"Instagram {host}\n\n{caption}".strip()
             try:
                 publish_release(repo, tag, clean, title, caption or title)
             except subprocess.CalledProcessError as e:

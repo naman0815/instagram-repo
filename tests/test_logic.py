@@ -184,6 +184,48 @@ def test_new_tweak_version_on_same_host_version_is_not_a_duplicate():
     assert add(src, m=b) is False
 
 
+def test_filename_version():
+    assert fetch.filename_version("Sparkle_v1.6.0_IG_v454.1.0.ipa", NAMED_RE) == "1.6.0"
+    assert fetch.filename_version("x.ipa", NAMED_RE) is None
+    assert fetch.filename_version("Sparkle_v1.6.0_IG_v1.ipa", SPARKLE_RE) is None
+    assert fetch.filename_version("a.ipa", None) is None
+
+
+CAPTION = ("\u2728 Sparkle for Instagram \u2014 v1.6.0\n\nTested on: Instagram 454.1.0\n\n"
+           "Support my work: click here\n\n\n\nNew: OLED mode\nJoin the discussion: click here")
+
+
+def test_clean_caption_drops_lines_and_collapses_blanks():
+    out = fetch.clean_caption(CAPTION, "Support my work|Join the discussion")
+    assert "Support my work" not in out and "Join the discussion" not in out
+    assert "\n\n\n" not in out and out.endswith("New: OLED mode")
+    assert fetch.clean_caption(None) == "" and fetch.clean_caption("  a \n") == "a"
+
+
+def test_merge_description_keeps_host_line_and_is_idempotent():
+    once = fetch.merge_description("Instagram 454.1.0", "Changelog")
+    assert once == "Instagram 454.1.0\n\nChangelog"
+    assert fetch.merge_description(once, "Changelog") == once
+    assert fetch.merge_description("Instagram 454.1.0", "") == "Instagram 454.1.0"
+    assert fetch.merge_description("", "Changelog") == "Changelog"
+
+
+def test_refresh_description_only_touches_matching_version():
+    src = fetch.new_source()
+    add(src, m=meta(version="1.5.0", build="1"), description="Instagram 451.0.0")
+    add(src, m=meta(version="1.6.0", build="2"), description="Instagram 454.1.0")
+    assert fetch.version_exists(src, "1.6.0") and not fetch.version_exists(src, "9.9")
+    assert fetch.refresh_description(src, "1.6.0", "Notes") is True
+    assert fetch.refresh_description(src, "1.6.0", "Notes") is False
+    descs = {v["version"]: v["localizedDescription"] for v in src["apps"][0]["versions"]}
+    assert descs == {"1.5.0": "Instagram 451.0.0", "1.6.0": "Instagram 454.1.0\n\nNotes"}
+
+
+def test_source_name():
+    assert fetch.new_source()["name"] == "Sparkle for Instagram"
+    assert json.load(open(Path(__file__).resolve().parent.parent / "source.json"))["name"] == "Sparkle for Instagram"
+
+
 def test_matches_filter_without_pattern_accepts_any_ipa():
     assert fetch.matches_filter("whatever.ipa") and not fetch.matches_filter("a.deb")
 

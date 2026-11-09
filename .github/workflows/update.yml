@@ -33,6 +33,8 @@ jobs:
           # The named group `version` (Sparkle's version) becomes the release version,
           # so a new Sparkle build on the same Instagram version is still published.
           IPA_FILENAME_REGEX: '^Sparkle_v(?P<version>[^_]+)_IG_v[^_]+\.ipa$'
+          # Caption lines matching this are left out of the changelog.
+          CAPTION_DROP_REGEX: 'Support my work|Join the discussion'
         run: python fetch.py
       # always(): if a later IPA fails, still commit progress from earlier ones.
       - name: Commit changes

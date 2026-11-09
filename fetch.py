@@ -82,25 +82,70 @@ def extract_metadata(ipa_path):
     }
 
 
+def filename_version(filename, pattern):
+    """The text of the named group `version` if `pattern` has one and matches."""
+    if not pattern:
+        return None
+    m = re.search(pattern, filename or "")
+    if not m or "version" not in m.re.groupindex:
+        return None
+    return m.group("version") or None
+
+
 def apply_filename_version(meta, filename, pattern):
     """If `pattern` has a named group `version` that matches `filename`, use it
     as the release version (e.g. the tweak's own version) instead of the
     Info.plist one, which is the host app's version and can repeat across
     tweak releases. The original is kept as meta['hostVersion']."""
-    if not pattern:
-        return meta
-    m = re.search(pattern, filename or "")
-    if not m or "version" not in m.re.groupindex or not m.group("version"):
+    version = filename_version(filename, pattern)
+    if not version:
         return meta
     out = dict(meta)
     out["hostVersion"] = meta["version"]
-    out["version"] = m.group("version")
+    out["version"] = version
     return out
+
+
+def clean_caption(text, drop_regex=None):
+    """Tidy a Telegram caption for use as a changelog: drop lines matching
+    `drop_regex` (e.g. donation links) and collapse extra blank lines."""
+    lines = [ln.rstrip() for ln in (text or "").replace("\r", "").split("\n")]
+    if drop_regex:
+        lines = [ln for ln in lines if not re.search(drop_regex, ln)]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+
+
+def merge_description(existing, caption):
+    """Add `caption` under the first paragraph of `existing` unless it is
+    already there. Returns the (possibly unchanged) description."""
+    existing = existing or ""
+    if not caption or caption in existing:
+        return existing
+    head = existing.split("\n\n")[0].strip()
+    return f"{head}\n\n{caption}" if head else caption
+
+
+def version_exists(source, version):
+    return any(v.get("version") == version
+               for app in source.get("apps", []) for v in app.get("versions", []))
+
+
+def refresh_description(source, version, caption):
+    """Fill in a missing changelog on already-published versions. True if changed."""
+    changed = False
+    for app in source.get("apps", []):
+        for v in app.get("versions", []):
+            if v.get("version") == version:
+                new = merge_description(v.get("localizedDescription", ""), caption)
+                if new != v.get("localizedDescription"):
+                    v["localizedDescription"] = new
+                    changed = True
+    return changed
 
 
 def new_source():
     return {
-        "name": "My IPA Source",
+        "name": "Sparkle for Instagram",
         "identifier": "com.<user>.ipa-source",
         "subtitle": "Auto-updated from Telegram",
         "description": "Automatically updated IPAs.",
@@ -217,6 +262,24 @@ def log(msg):
     print(msg, flush=True)
 
 
+async def find_caption(client, channel, msg):
+    """Caption text for an IPA post. Telegram albums keep the caption on just
+    one of the files, so look at neighbouring messages in the same album."""
+    if (msg.message or "").strip():
+        return msg.message
+    gid = getattr(msg, "grouped_id", None)
+    if not gid:
+        return ""
+    try:
+        ids = list(range(max(1, msg.id - 10), msg.id + 11))
+        for m in await client.get_messages(channel, ids=ids):
+            if m and getattr(m, "grouped_id", None) == gid and (m.message or "").strip():
+                return m.message
+    except Exception as e:  # a missing changelog must not block publishing
+        log(f"Could not look up album caption for #{msg.id}: {e!r}")
+    return ""
+
+
 async def candidates(client, channel, last_id, pattern):
     """Yield messages to look at, oldest first.
 
@@ -244,6 +307,7 @@ async def run(dry_run):
     channel = os.environ["TG_CHANNEL"].strip()
     repo = os.environ.get("GITHUB_REPOSITORY", "<user>/<repo>")
     pattern = os.environ.get("IPA_FILENAME_REGEX", "").strip() or None
+    drop = os.environ.get("CAPTION_DROP_REGEX", "").strip() or None
     if re.fullmatch(r"-?\d+", channel):
         channel = int(channel)
 
@@ -261,6 +325,23 @@ async def run(dry_run):
 
             if dry_run:
                 log(f"[dry-run] would process #{msg.id}: {filename} ({msg.file.size} bytes)")
+                continue
+
+            caption = clean_caption(await find_caption(client, channel, msg), drop)
+            if not caption:
+                log(f"No caption found for #{msg.id}")
+
+            # Already published (by the tweak version in the filename)? Skip the
+            # big download, only fill in a missing changelog.
+            fv = filename_version(filename, pattern)
+            if fv and version_exists(source, fv):
+                if refresh_description(source, fv, caption):
+                    log(f"Updated changelog for {fv}")
+                    save_json(SOURCE_PATH, source)
+                log(f"Skip #{msg.id}: {fv} already published")
+                last_id = msg.id
+                state["last_message_id"] = last_id
+                save_json(STATE_PATH, state)
                 continue
 
             DOWNLOAD_DIR.mkdir(exist_ok=True)
@@ -285,7 +366,6 @@ async def run(dry_run):
             clean = DOWNLOAD_DIR / clean_ipa_name(meta["name"], meta["version"])
             shutil.move(tmp, clean)
             tag = make_tag(meta["version"], meta["build"])
-            caption = (msg.message or "").strip()
             host = meta.get("hostVersion")
             title = f"{meta['name']} {meta['version']} ({meta['build']})"
             if host:

@@ -40,5 +40,10 @@ generated `iconURL`s point at them.
   Instagram version is still published. The Instagram version goes in the description.
 - On the first run only the **newest** matching IPA is published, not the whole channel history.
   Set `BACKFILL=1` in the workflow env to process everything.
+- The changelog is the post's caption. Telegram albums keep it on just one file, so the script
+  looks through the same album for it. Lines matching `CAPTION_DROP_REGEX` (workflow env) are
+  removed. An already-published version only gets its changelog filled in, with no re-download.
+- The source name (`name` in `source.json`) is shown in FlareStore/Feather; edit it there.
+- `icon.png` / `instagram.png` are original placeholder artwork; replace them with any image.
 - Tests: `pip install -r requirements-dev.txt && pytest`.
 - If a download fails, state is not advanced past that message; the next run retries it.

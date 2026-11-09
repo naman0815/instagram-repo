@@ -1,11 +1,37 @@
 {
   "name": "My IPA Source",
-  "identifier": "com.<user>.ipa-source",
+  "identifier": "com.naman0815.ipa-source",
   "subtitle": "Auto-updated from Telegram",
   "description": "Automatically updated IPAs.",
-  "iconURL": "https://raw.githubusercontent.com/<user>/<repo>/main/icon.png",
-  "website": "https://github.com/<user>/<repo>",
+  "iconURL": "https://raw.githubusercontent.com/naman0815/instagram-repo/main/icon.png",
+  "website": "https://github.com/naman0815/instagram-repo",
   "tintColor": "#E1306C",
-  "apps": [],
+  "apps": [
+    {
+      "name": "Instagram",
+      "bundleIdentifier": "com.burbn.instagram",
+      "developerName": "Meta",
+      "subtitle": "Latest Instagram",
+      "localizedDescription": "Auto-updated Instagram IPA.",
+      "iconURL": "https://raw.githubusercontent.com/naman0815/instagram-repo/main/instagram.png",
+      "tintColor": "#E1306C",
+      "screenshotURLs": [],
+      "versions": [
+        {
+          "version": "1.6.0",
+          "buildVersion": "1106185088",
+          "date": "2026-11-05",
+          "localizedDescription": "Instagram 454.1.0",
+          "downloadURL": "https://github.com/naman0815/instagram-repo/releases/download/v1.6.0-1106185088/Instagram-1.6.0.ipa",
+          "size": 382976623,
+          "minOSVersion": "15.0"
+        }
+      ],
+      "version": "1.6.0",
+      "versionDate": "2026-11-05",
+      "downloadURL": "https://github.com/naman0815/instagram-repo/releases/download/v1.6.0-1106185088/Instagram-1.6.0.ipa",
+      "size": 382976623
+    }
+  ],
   "news": []
 }

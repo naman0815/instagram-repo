@@ -1,0 +1,11 @@
+{
+  "name": "My IPA Source",
+  "identifier": "com.<user>.ipa-source",
+  "subtitle": "Auto-updated from Telegram",
+  "description": "Automatically updated IPAs.",
+  "iconURL": "https://raw.githubusercontent.com/<user>/<repo>/main/icon.png",
+  "website": "https://github.com/<user>/<repo>",
+  "tintColor": "#E1306C",
+  "apps": [],
+  "news": []
+}

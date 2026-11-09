@@ -141,12 +141,14 @@ def test_clean_name_tag_and_url():
     assert fetch.download_url(REPO, "v1", "a b.ipa").endswith("/v1/a%20b.ipa")
 
 
-SPARKLE_RE = r"^Sparkle_v[0-9.]+_IG_v[0-9.]+\.ipa$"
+SPARKLE_RE = r"^Sparkle_v[^_]+_IG_v[^_]+\.ipa$"
 
 
 @pytest.mark.parametrize("name,expected", [
     ("Sparkle_v1.6.0_IG_v454.1.0.ipa", True),
     ("Sparkle_v1.6.1_IG_v455.0.ipa", True),
+    ("Sparkle_v1.7.0-beta2_IG_v456.0.1.ipa", True),
+    ("Sparkle_v1.7.0_no-ext_IG_v456.0.1.ipa", False),
     ("Sparkle_no-ext_v1.6.0_IG_v454.1.0.ipa", False),
     ("Sparkle_v1.6.0_rootful.deb", False),
     ("SPKSideloadFix.dylib", False),

@@ -30,7 +30,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           # Only track this file; skips the no-ext IPA, .deb and .dylib posts.
-          IPA_FILENAME_REGEX: '^Sparkle_v[0-9.]+_IG_v[0-9.]+\.ipa$'
+          IPA_FILENAME_REGEX: '^Sparkle_v[^_]+_IG_v[^_]+\.ipa$'
         run: python fetch.py
       # always(): if a later IPA fails, still commit progress from earlier ones.
       - name: Commit changes

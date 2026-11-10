@@ -28,9 +28,9 @@ generated `iconURL`s point at them.
 
 ## Notes
 
-- GitHub **pauses scheduled workflows after 60 days without repo activity**. Real updates
-  commit to the repo and keep it alive; if the channel goes quiet, re-enable the workflow
-  or push any commit.
+- GitHub **pauses scheduled workflows after 60 days without repo activity**. Real updates commit
+  to the repo and keep it alive. If a run has nothing to publish and the latest commit is more
+  than 30 days old, the workflow adds one empty "Keep scheduled workflow alive" commit.
 - Cron runs can be delayed by several minutes. Release assets may be up to 2 GB.
 - `python fetch.py --dry-run` (needs the `TG_*` env vars) lists IPAs it would process without
   downloading, uploading or editing anything.

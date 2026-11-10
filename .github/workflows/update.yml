@@ -54,7 +54,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add source.json state.json
-          git diff --cached --quiet || git commit -m "Update source $(date -u +%F)"
+          if git diff --cached --quiet; then
+            # Nothing new. GitHub disables scheduled workflows after 60 days without repo
+            # activity, so if the latest commit is over 30 days old, add an empty one.
+            age=$(( $(date +%s) - $(git log -1 --format=%ct) ))
+            if [ "$age" -gt $(( 30 * 24 * 3600 )) ]; then
+              git commit --allow-empty -m "Keep scheduled workflow alive"
+            fi
+          else
+            git commit -m "Update source $(date -u +%F)"
+          fi
           # main may have moved while this run was going (e.g. a code push): sync first.
           git pull --rebase --autostash origin main
           git push

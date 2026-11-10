@@ -389,21 +389,30 @@ async def find_caption(client, channel, msg):
     return ""
 
 
-async def candidates(client, channel, last_id, pattern):
-    """Yield messages to look at, oldest first.
+SCAN_LIMIT = 300  # how many recent messages to look through for the newest IPA
 
-    On the very first run (no state) only the newest matching IPA is taken, so
-    a long channel history is not downloaded. Set BACKFILL=1 to override."""
-    if last_id == 0 and not os.environ.get("BACKFILL"):
-        log("First run: taking only the newest matching IPA (BACKFILL=1 processes all history)")
-        async for msg in client.iter_messages(channel):  # newest first
-            if matches_filter(message_filename(msg), pattern):
+
+async def candidates(client, channel, last_id, pattern):
+    """Yield the messages to handle.
+
+    Default: only the newest post that has a matching IPA, on every run. Anything
+    already published is skipped without downloading, so this is cheap.
+    BACKFILL=1: every message after the saved state, oldest first (whole history
+    if the state is 0)."""
+    if os.environ.get("BACKFILL"):
+        async for msg in client.iter_messages(channel, min_id=last_id, reverse=True):
+            if msg.id > last_id:
                 yield msg
-                return
         return
-    async for msg in client.iter_messages(channel, min_id=last_id, reverse=True):
-        if msg.id > last_id:
+    async for msg in client.iter_messages(channel, limit=SCAN_LIMIT):  # newest first
+        name = message_filename(msg)
+        if matches_filter(name, pattern):
+            log(f"Newest matching IPA is #{msg.id}: {name}")
             yield msg
+            return
+        if is_ipa_name(name):
+            log(f"Ignoring #{msg.id}: {name} (does not match IPA_FILENAME_REGEX)")
+    log(f"No matching IPA in the last {SCAN_LIMIT} messages")
 
 
 async def run(dry_run):

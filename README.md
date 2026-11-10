@@ -39,8 +39,11 @@ generated `iconURL`s point at them.
 - If the regex has a named group `version`, that text (Sparkle's version) is used as the release
   version/tag instead of the Info.plist version (Instagram's), so a new Sparkle build on the same
   Instagram version is still published. The Instagram version goes in the description.
-- On the first run only the **newest** matching IPA is published, not the whole channel history.
-  Set `BACKFILL=1` in the workflow env to process everything.
+- Every run looks at the **newest** post in the channel that has a matching IPA. If that version
+  is already published it is skipped without downloading; otherwise it is published. `.ipa` files
+  that don't match the filter are listed in the log (`Ignoring #<id>: <name>`). If two releases
+  appear between runs, only the newest is published. Set `BACKFILL=1` in the workflow env to
+  process every message after `state.json` instead (the whole history if it is 0).
 - The changelog is the post's caption. Telegram albums keep it on just one file, so the script
   looks through the same album for it. Lines matching `CAPTION_DROP_REGEX` (workflow env) are
   removed. An already-published version only gets its changelog filled in, with no re-download.

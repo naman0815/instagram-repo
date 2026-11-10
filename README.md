@@ -45,5 +45,12 @@ generated `iconURL`s point at them.
   removed. An already-published version only gets its changelog filled in, with no re-download.
 - The source name (`name` in `source.json`) is shown in FlareStore/Feather; edit it there.
 - `icon.png` / `instagram.png` are original placeholder artwork; replace them with any image.
+- **Optional Cloudflare R2 hosting** (faster downloads than GitHub release assets). Add the repo
+  secrets `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` and
+  `R2_PUBLIC_URL` (the bucket's public `https://pub-....r2.dev` or custom-domain URL). With all five
+  set, new IPAs are uploaded to R2 and `downloadURL` points there; the GitHub release is still
+  created. The newest `R2_KEEP` (default 5) versions live on R2; older ones are deleted from the
+  bucket and fall back to their GitHub release URL. Existing versions are copied to R2 on the next
+  run. If R2 fails or is not configured, GitHub URLs are used.
 - Tests: `pip install -r requirements-dev.txt && pytest`.
 - If a download fails, state is not advanced past that message; the next run retries it.

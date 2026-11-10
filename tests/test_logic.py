@@ -228,6 +228,52 @@ def test_tag_from_url():
     assert fetch.tag_from_url("https://example.com/x.ipa") is None and fetch.tag_from_url(None) is None
 
 
+R2_BASE = "https://pub-abc.r2.dev"
+
+
+def test_r2_url_and_split_url_roundtrip():
+    url = fetch.r2_url(R2_BASE + "/", "v1.6.0-110", "Instagram 1.6.0.ipa")
+    assert url == "https://pub-abc.r2.dev/v1.6.0-110/Instagram%201.6.0.ipa"
+    assert fetch.split_url(url) == ("v1.6.0-110", "Instagram 1.6.0.ipa")
+    gh_url = fetch.download_url(REPO, "v1.6.0-110", "Instagram-1.6.0.ipa")
+    assert fetch.split_url(gh_url) == ("v1.6.0-110", "Instagram-1.6.0.ipa")
+    assert fetch.r2_key("v1", "a.ipa") == "v1/a.ipa"
+
+
+def test_is_r2_url_needs_a_path_boundary():
+    assert fetch.is_r2_url("https://pub-abc.r2.dev/v1/a.ipa", R2_BASE)
+    assert not fetch.is_r2_url("https://pub-abc.r2.dev.evil.com/v1/a.ipa", R2_BASE)
+    assert not fetch.is_r2_url(None, R2_BASE)
+
+
+def test_plan_r2_sync_keeps_newest_on_r2_and_prunes_the_rest():
+    src = fetch.new_source()
+    for i in range(1, 5):
+        add(src, m=meta(version=f"1.{i}.0", build=str(i)))
+    vs = src["apps"][0]["versions"]  # newest first: 1.4.0, 1.3.0, 1.2.0, 1.1.0
+    vs[2]["downloadURL"] = fetch.r2_url(R2_BASE, "v1.2.0-2", "Instagram-1.2.0.ipa")  # old one on R2
+    up, prune = fetch.plan_r2_sync(src, R2_BASE, keep=2)
+    assert [v["version"] for v in up] == ["1.4.0", "1.3.0"]
+    assert [v["version"] for v in prune] == ["1.2.0"]
+
+
+def test_r2_config_requires_all_keys(monkeypatch):
+    for k in fetch.R2_KEYS:
+        monkeypatch.setenv(k, "x")
+    assert fetch.r2_config()["R2_BUCKET"] == "x"
+    monkeypatch.setenv("R2_BUCKET", "  ")
+    assert fetch.r2_config() is None
+    monkeypatch.delenv("R2_PUBLIC_URL")
+    assert fetch.r2_config() is None
+
+
+def test_add_version_uses_explicit_url():
+    src = fetch.new_source()
+    add(src, url="https://pub-abc.r2.dev/v400.0-1/Instagram-400.0.ipa")
+    app = src["apps"][0]
+    assert app["versions"][0]["downloadURL"] == app["downloadURL"] == "https://pub-abc.r2.dev/v400.0-1/Instagram-400.0.ipa"
+
+
 def test_source_name():
     assert fetch.new_source()["name"] == "Sparkle for Instagram"
     assert json.load(open(Path(__file__).resolve().parent.parent / "source.json"))["name"] == "Sparkle for Instagram"

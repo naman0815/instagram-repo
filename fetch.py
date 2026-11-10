@@ -13,7 +13,7 @@ import sys
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import quote, unquote
+from urllib.parse import quote, unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parent
 SOURCE_PATH = ROOT / "source.json"
@@ -188,7 +188,7 @@ def is_duplicate(source, bundle_id, version):
     return bool(app) and any(v.get("version") == version for v in app.get("versions", []))
 
 
-def add_version(source, meta, *, repo, tag, filename, size, date, description=""):
+def add_version(source, meta, *, repo, tag, filename, size, date, description="", url=None):
     """Insert a version at the front of the app's list (creating the app if
     needed) and sync the legacy top-level fields. Returns False on duplicate."""
     if is_duplicate(source, meta["bundleIdentifier"], meta["version"]):
@@ -213,7 +213,7 @@ def add_version(source, meta, *, repo, tag, filename, size, date, description=""
         "buildVersion": meta["build"],
         "date": date,
         "localizedDescription": description,
-        "downloadURL": download_url(repo, tag, filename),
+        "downloadURL": url or download_url(repo, tag, filename),
         "size": size,
         "minOSVersion": meta["minOSVersion"],
     }
@@ -260,6 +260,108 @@ def publish_release(repo, tag, path, title, notes):
         gh("release", "upload", tag, str(path), "--repo", repo, "--clobber")
     else:
         gh("release", "create", tag, str(path), "--repo", repo, "--title", title, "--notes", notes)
+
+
+# --------------------------------------------------------------------------
+# Cloudflare R2 (optional): faster downloads than GitHub release assets
+# --------------------------------------------------------------------------
+R2_KEYS = ("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET", "R2_PUBLIC_URL")
+
+
+def split_url(url):
+    """(tag, filename) from a .../<tag>/<filename> download URL (GitHub or R2)."""
+    parts = urlsplit(url).path.rstrip("/").split("/")
+    return unquote(parts[-2]), unquote(parts[-1])
+
+
+def r2_url(base, tag, filename):
+    return f"{base.rstrip('/')}/{quote(tag, safe='')}/{quote(filename, safe='')}"
+
+
+def r2_key(tag, filename):
+    return f"{tag}/{filename}"
+
+
+def is_r2_url(url, base):
+    return (url or "").startswith(base.rstrip("/") + "/")
+
+
+def plan_r2_sync(source, base, keep):
+    """Newest `keep` versions of each app should live on R2; older ones fall back
+    to their GitHub release asset so the bucket stays small.
+    Returns (to_upload, to_prune) lists of version entries."""
+    to_upload, to_prune = [], []
+    for app in source.get("apps", []):
+        for i, v in enumerate(app.get("versions", [])):
+            on_r2 = is_r2_url(v.get("downloadURL"), base)
+            if i < keep and not on_r2:
+                to_upload.append(v)
+            elif i >= keep and on_r2:
+                to_prune.append(v)
+    return to_upload, to_prune
+
+
+def r2_config():
+    """R2 settings from the environment, or None if R2 is not (fully) configured."""
+    cfg = {k: os.environ.get(k, "").strip() for k in R2_KEYS}
+    return cfg if all(cfg.values()) else None
+
+
+def r2_client(cfg):
+    import boto3
+    from botocore.config import Config
+    return boto3.client(
+        "s3",
+        endpoint_url=f"https://{cfg['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com",
+        aws_access_key_id=cfg["R2_ACCESS_KEY_ID"],
+        aws_secret_access_key=cfg["R2_SECRET_ACCESS_KEY"],
+        region_name="auto",
+        config=Config(signature_version="s3v4",
+                      request_checksum_calculation="when_required",
+                      response_checksum_validation="when_required"),
+    )
+
+
+def r2_upload(cfg, path, key):
+    r2_client(cfg).upload_file(str(path), cfg["R2_BUCKET"], key,
+                               ExtraArgs={"ContentType": "application/octet-stream"})
+
+
+def r2_delete(cfg, key):
+    r2_client(cfg).delete_object(Bucket=cfg["R2_BUCKET"], Key=key)
+
+
+def sync_r2(source, cfg, repo, keep):
+    """Move the newest versions to R2 (copying from their GitHub release) and
+    push older ones back to GitHub, deleting them from the bucket."""
+    base = cfg["R2_PUBLIC_URL"]
+    to_upload, to_prune = plan_r2_sync(source, base, keep)
+    for v in to_upload:
+        tag, fname = split_url(v["downloadURL"])
+        DOWNLOAD_DIR.mkdir(exist_ok=True)
+        local = DOWNLOAD_DIR / fname
+        try:
+            log(f"Copying {tag}/{fname} to R2")
+            gh("release", "download", tag, "--repo", repo, "--pattern", fname,
+               "--dir", str(DOWNLOAD_DIR), "--clobber")
+            r2_upload(cfg, local, r2_key(tag, fname))
+            v["downloadURL"] = r2_url(base, tag, fname)
+        except Exception as e:  # keep the working GitHub URL
+            log(f"Could not copy {tag}/{fname} to R2: {e!r}")
+        finally:
+            local.unlink(missing_ok=True)
+    for v in to_prune:
+        tag, fname = split_url(v["downloadURL"])
+        try:
+            r2_delete(cfg, r2_key(tag, fname))
+            v["downloadURL"] = download_url(repo, tag, fname)
+            log(f"Pruned {tag}/{fname} from R2 (now served from GitHub)")
+        except Exception as e:
+            log(f"Could not prune {tag}/{fname} from R2: {e!r}")
+    for app in source.get("apps", []):
+        if app.get("versions"):
+            sync_legacy_fields(app)
+    return bool(to_upload or to_prune)
 
 
 # --------------------------------------------------------------------------
@@ -315,6 +417,9 @@ async def run(dry_run):
     repo = os.environ.get("GITHUB_REPOSITORY", "<user>/<repo>")
     pattern = os.environ.get("IPA_FILENAME_REGEX", "").strip() or None
     drop = os.environ.get("CAPTION_DROP_REGEX", "").strip() or None
+    r2 = r2_config()
+    keep = int(os.environ.get("R2_KEEP", "").strip() or 5)
+    log("Cloudflare R2: " + ("enabled" if r2 else "not configured, using GitHub release URLs"))
     if re.fullmatch(r"-?\d+", channel):
         channel = int(channel)
 
@@ -394,11 +499,18 @@ async def run(dry_run):
                 clean.unlink(missing_ok=True)
                 break
 
+            url = None
+            if r2:
+                try:
+                    r2_upload(r2, clean, r2_key(tag, clean.name))
+                    url = r2_url(r2["R2_PUBLIC_URL"], tag, clean.name)
+                except Exception as e:  # fall back to the GitHub asset
+                    log(f"R2 upload failed for {tag}: {e!r}; using the GitHub URL")
             add_version(
                 source, meta, repo=repo, tag=tag, filename=clean.name,
                 size=clean.stat().st_size,
                 date=msg.date.astimezone(timezone.utc).strftime("%Y-%m-%d"),
-                description=caption,
+                description=caption, url=url,
             )
             clean.unlink(missing_ok=True)
             last_id = msg.id
@@ -409,6 +521,8 @@ async def run(dry_run):
             log(f"Published {tag}")
 
     if not dry_run:
+        if r2:
+            sync_r2(source, r2, repo, keep)
         save_json(SOURCE_PATH, source)
         state["last_message_id"] = last_id
         save_json(STATE_PATH, state)

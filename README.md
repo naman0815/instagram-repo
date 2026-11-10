@@ -2,7 +2,8 @@
 
 Watches a Telegram channel for Instagram `.ipa` posts, publishes each one as a GitHub
 Release asset and keeps an AltStore-style `source.json` up to date for FlareStore / Feather.
-Runs every 30 minutes on GitHub Actions; no server.
+Runs on the 1st and 16th of each month (03:17 UTC) on GitHub Actions; no server. Run it by hand
+from the Actions tab for an immediate check.
 
 ## Setup
 

@@ -30,10 +30,12 @@ jobs:
           TG_CHANNEL: ${{ secrets.TG_CHANNEL }}
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          # Only track this file; skips the no-ext IPA, .deb and .dylib posts.
+          # Only track the main IPA. Matches both naming styles, e.g.
+          #   Sparkle_v1.6.0_IG_v454.1.0.ipa  and  Sparkle v1.6.1 (IG v454.1.0).ipa
+          # and skips the no-ext / "No Plugins" IPAs, .deb and .dylib posts.
           # The named group `version` (Sparkle's version) becomes the release version,
           # so a new Sparkle build on the same Instagram version is still published.
-          IPA_FILENAME_REGEX: '^Sparkle_v(?P<version>[^_]+)_IG_v[^_]+\.ipa$'
+          IPA_FILENAME_REGEX: '^Sparkle[_ ]v(?P<version>[0-9][^_ ]*)[_ ]\(?IG[_ ]v[^_ )]+\)?\.ipa$'
           # Optional Cloudflare R2 storage for faster downloads. If any of these
           # secrets is missing, the GitHub release asset URL is used instead.
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}

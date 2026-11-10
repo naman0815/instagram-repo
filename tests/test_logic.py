@@ -184,6 +184,34 @@ def test_new_tweak_version_on_same_host_version_is_not_a_duplicate():
     assert add(src, m=b) is False
 
 
+def workflow_regex():
+    import re
+    text = (Path(__file__).resolve().parent.parent / ".github/workflows/update.yml").read_text()
+    return re.search(r"IPA_FILENAME_REGEX: '(.*)'", text).group(1)
+
+
+@pytest.mark.parametrize("name,version", [
+    ("Sparkle_v1.6.0_IG_v454.1.0.ipa", "1.6.0"),
+    ("Sparkle_v1.5.1_IG_v451.0.0.ipa", "1.5.1"),
+    ("Sparkle v1.6.1 (IG v454.1.0).ipa", "1.6.1"),
+    ("Sparkle v1.7.0-beta2 (IG v455.0.1).ipa", "1.7.0-beta2"),
+])
+def test_workflow_regex_accepts_real_channel_names(name, version):
+    assert fetch.matches_filter(name, workflow_regex())
+    assert fetch.filename_version(name, workflow_regex()) == version
+
+
+@pytest.mark.parametrize("name", [
+    "Sparkle v1.6.1 (IG v454.1.0) No Plugins.ipa",
+    "Sparkle_no-ext_v1.6.0_IG_v454.1.0.ipa",
+    "Sparkle_v1.6.0_rootful.deb",
+    "Sparkle_v1.6.0_rootless.deb",
+    "SPKSideloadFix.dylib",
+])
+def test_workflow_regex_rejects_other_posts(name):
+    assert not fetch.matches_filter(name, workflow_regex())
+
+
 def test_filename_version():
     assert fetch.filename_version("Sparkle_v1.6.0_IG_v454.1.0.ipa", NAMED_RE) == "1.6.0"
     assert fetch.filename_version("x.ipa", NAMED_RE) is None

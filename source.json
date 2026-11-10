@@ -22,14 +22,14 @@
           "buildVersion": "1106185088",
           "date": "2026-11-05",
           "localizedDescription": "Instagram 454.1.0\n\n✨ Sparkle for Instagram — v1.6.0\n\n🧪 Tested on: Instagram 454.1.0, 410.1.0\n\n🔔 Sparkle now tells you when an update is out, right in the app, with the changelog included. Update takes you straight to this channel.\n\n🆕 OLED Dark Mode, pinned people in search, account privacy toggles for your follower lists, exact follower counts, Liquid Glass forced on or off, saved stories and highlights that open right from the Gallery, and confirmations for feed refresh and sending reels.\n\n🛠 Also: notification settings grouped into 12 categories, Gallery originals no longer moved by saves, fixes for Instagram 452 to 454, and many smaller fixes and improvements.\n\n📝 Full changelog: click here\n\n🚀 Sideloading (IPA):\n• v454.1.0 with plugins: for paid certificate (Feather, Ksign, etc.)\n• v454.1.0 without plugins: for free certificate (AltStore, SideStore, LiveContainer, etc.)",
-          "downloadURL": "https://github.com/naman0815/instagram-repo/releases/download/v1.6.0-1106185088/Instagram-1.6.0.ipa",
+          "downloadURL": "https://pub-29adcf2845034b5fb588ff2ee0291201.r2.dev/v1.6.0-1106185088/Instagram-1.6.0.ipa",
           "size": 382976623,
           "minOSVersion": "15.0"
         }
       ],
       "version": "1.6.0",
       "versionDate": "2026-11-05",
-      "downloadURL": "https://github.com/naman0815/instagram-repo/releases/download/v1.6.0-1106185088/Instagram-1.6.0.ipa",
+      "downloadURL": "https://pub-29adcf2845034b5fb588ff2ee0291201.r2.dev/v1.6.0-1106185088/Instagram-1.6.0.ipa",
       "size": 382976623
     }
   ],

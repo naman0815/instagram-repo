@@ -18,6 +18,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "1.6.1",
+          "buildVersion": "1106185088",
+          "date": "2026-11-06",
+          "localizedDescription": "Instagram 454.1.0\n\n✨ Sparkle for Instagram — v1.6.1\n\n🧪 Tested on: Instagram 454.1.0, 410.1.0\n\n🛠 A bug fix update for v1.6.0: the Following feed mode no longer crashes on launch, language packs download again behind fake-IP VPNs, failed downloads report correctly, notifications no longer stack duplicate toasts or screens, and Instagram-style toasts are tinted on 410.\n\n📝 Full changelog: click here\n\n🚀 Sideloading (IPA):\n• v454.1.0: for paid certificate (Feather, Ksign, etc.)\n• v454.1.0 No Plugins: for free certificate (AltStore, SideStore, LiveContainer, etc.)",
+          "downloadURL": "https://pub-29adcf2845034b5fb588ff2ee0291201.r2.dev/v1.6.1-1106185088/Instagram-1.6.1.ipa",
+          "size": 382978359,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "1.6.0",
           "buildVersion": "1106185088",
           "date": "2026-11-05",
@@ -27,10 +36,10 @@
           "minOSVersion": "15.0"
         }
       ],
-      "version": "1.6.0",
-      "versionDate": "2026-11-05",
-      "downloadURL": "https://pub-29adcf2845034b5fb588ff2ee0291201.r2.dev/v1.6.0-1106185088/Instagram-1.6.0.ipa",
-      "size": 382976623
+      "version": "1.6.1",
+      "versionDate": "2026-11-06",
+      "downloadURL": "https://pub-29adcf2845034b5fb588ff2ee0291201.r2.dev/v1.6.1-1106185088/Instagram-1.6.1.ipa",
+      "size": 382978359
     }
   ],
   "news": []
